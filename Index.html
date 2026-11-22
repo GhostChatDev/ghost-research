@@ -575,7 +575,8 @@ python run_inference_server.py -m models/BitNet-b1.58-2B-4T/ggml-model-i2_s.gguf
       log: state.log.slice(0, 40),
       imp: state.imp || {},
       base: state.base,
-      modelId: state.modelId
+      modelId: state.modelId,
+      prompt: $("prompt") ? $("prompt").value : ""
     };
     localStorage.setItem(STORAGE, JSON.stringify(copy));
   }
@@ -1025,12 +1026,27 @@ python run_inference_server.py -m models/BitNet-b1.58-2B-4T/ggml-model-i2_s.gguf
 
   $("prompt").addEventListener("input", function () {
     $("inTok").value = String(tokensOf($("prompt").value) + 40);
+    save();
   });
+  if (state.prompt) {
+    $("prompt").value = state.prompt;
+    $("inTok").value = String(tokensOf(state.prompt) + 40);
+  }
   $("base").value = state.base;
   $("modelId").value = state.modelId;
   $("base").addEventListener("change", function () { state.base = $("base").value.trim() || state.base; save(); $("providerCard").textContent = providerText(); });
   $("modelId").addEventListener("change", function () { state.modelId = $("modelId").value.trim() || state.modelId; save(); $("providerCard").textContent = providerText(); });
-  $("routeBtn").addEventListener("click", function () { renderDecision(decide()); });
+  $("routeBtn").addEventListener("click", function () {
+    renderDecision(decide());
+    var stamp = $("routeStamp");
+    if (!stamp) {
+      stamp = document.createElement("p");
+      stamp.id = "routeStamp";
+      stamp.className = "hint";
+      $("decisionCard").appendChild(stamp);
+    }
+    stamp.textContent = "Routed at " + new Date().toLocaleTimeString() + ".";
+  });
   $("tryBtn").addEventListener("click", tryLocal);
   $("saveBtn").addEventListener("click", saveDecision);
   $("benchBtn").addEventListener("click", bench);

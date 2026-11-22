@@ -3,7 +3,7 @@
 Reviewed: 2026-11-22.
 Status: **proposals only (0 shipped)**. None of these changes are claimed to be deployed in Ghost Chat, and this document is not an audit proving a feature is absent from Ghost Chat's production codebase.
 
-These proposals come from the findings in [Research.md](Research.md) and are illustrated as an interactive concept in [Index.html](Index.html).
+These proposals come from the findings in [Research.md](Research.md) and are illustrated as an interactive concept in [index.html](index.html).
 
 ---
 

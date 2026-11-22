@@ -1,7 +1,7 @@
 // CLI walkthrough harness for Index.html: exercises busy, offline, and tools failure scenarios.
 const fs = require("fs");
 
-const html = fs.readFileSync("Index.html", "utf8");
+const html = fs.readFileSync(fs.existsSync("index.html") ? "index.html" : "Index.html", "utf8");
 const script = html.split("<script>")[1].split("</script>")[0];
 const ids = [...html.matchAll(/id="([A-Za-z0-9_-]+)"/g)].map(m => m[1]);
 

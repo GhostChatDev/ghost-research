@@ -27,7 +27,7 @@ See [IMPROVEMENTS.md](IMPROVEMENTS.md) for proposed acceptance criteria. These a
 
 ## What the software demonstrates
 
-[Index.html](Index.html) is an explicitly labelled walkthrough using fixed fictional provider states. It illustrates failure → explanation → explicit alternative selection. It makes no model requests and cannot prove a real failover. There is no generated reply, saved-bill counter, invented measured latency, or checkbox claiming an improvement shipped.
+[index.html](index.html) is an explicitly labelled walkthrough using fixed fictional provider states. It illustrates failure → explanation → explicit alternative selection. It makes no model requests and cannot prove a real failover. There is no generated reply, saved-bill counter, invented measured latency, or checkbox claiming an improvement shipped.
 
 The old savings planner and its monthly figures are retired. Kernel energy comparisons cannot establish a Ghost Chat saving; real evaluation needs matched tasks, quality checks, measured usage, current prices and measured device energy. Local inference is not cost-free.
 

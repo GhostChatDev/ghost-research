@@ -5,19 +5,19 @@ Independent research and an interactive provider-resilience walkthrough built fr
 ## Scope and status
 
 - **Research (`Research.md`):** Evaluates the claims shared by Simplifying AI (`@simplifyinAI`) against Microsoft's primary `bitnet.cpp` repository, the `BitNet b1.58 2B4T` model card, issue #432, and Ghost Chat's documentation.
-- **Walkthrough (`Index.html`):** An explicitly labelled **simulation-only** UI walkthrough showing how Ghost Chat can preserve a user's draft when a provider fails, explain capability or mobile-reachability mismatches, and require explicit consent before switching providers.
+- **Walkthrough (`index.html`):** An explicitly labelled **simulation-only** UI walkthrough showing how Ghost Chat can preserve a user's draft when a provider fails, explain capability or mobile-reachability mismatches, and require explicit consent before switching providers.
 - **Proposals (`IMPROVEMENTS.md`):** Prioritized acceptance criteria for mobile-accessible provider resilience in Ghost Chat. These are proposals, not shipped Ghost Chat features.
 
 ## Files in this repository
 
 - [Research.md](Research.md) — Cited research brief, attribution, and next real experiment design.
-- [Index.html](Index.html) — Self-contained interactive provider-resilience walkthrough.
+- [index.html](index.html) — Self-contained interactive provider-resilience walkthrough.
 - [IMPROVEMENTS.md](IMPROVEMENTS.md) — Prioritized product proposals and acceptance criteria for Ghost Chat.
 - [LICENSE](LICENSE) — Repository license for our original documentation and walkthrough code.
 
 ## Running the walkthrough
 
-Open [Index.html](Index.html) in any modern mobile or desktop browser. No build step, server install, or API key is required.
+Open [index.html](index.html) in any modern mobile or desktop browser. No build step, server install, or API key is required.
 
 ## Verification limits
 

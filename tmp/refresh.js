@@ -2,7 +2,7 @@
 // Verifies that the walkthrough keeps drafts in-tab only, never writes sensitive drafts to localStorage, and resets cleanly on a fresh page load.
 const fs = require("fs");
 
-const html = fs.readFileSync("Index.html", "utf8");
+const html = fs.readFileSync(fs.existsSync("index.html") ? "index.html" : "Index.html", "utf8");
 const script = html.split("<script>")[1].split("</script>")[0];
 const ids = [...html.matchAll(/id="([A-Za-z0-9_-]+)"/g)].map(m => m[1]);
 const store = {};

@@ -1,7 +1,7 @@
-// Sandbox check for Index.html: walkthrough scenarios, draft preservation, explicit consent, invalidation, reset, and no-network guarantee.
+// Sandbox check for index.html: walkthrough scenarios, draft preservation, explicit consent, invalidation, reset, and no-network guarantee.
 import fs from "fs";
 
-const html = fs.readFileSync(fs.existsSync("index.html") ? "index.html" : "Index.html", "utf8");
+const html = fs.readFileSync("index.html", "utf8");
 const script = html.split("<script>")[1].split("</script>")[0];
 const ids = [...html.matchAll(/id="([a-zA-Z0-9_-]+)"/g)].map(m => m[1]);
 

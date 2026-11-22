@@ -17,7 +17,8 @@ function mk(id) {
     style: {},
     disabled: false,
     checked: false,
-    hidden: id === "consent" || id === "result",
+    files: [],
+    hidden: id === "consent" || id === "result" || id === "retry",
     dataset: {},
     _attrs: {},
     _ls: {},
@@ -54,8 +55,13 @@ function boot() {
 }
 
 const log = (...a) => console.log(...a);
+let assertions = 0;
 const fail = [];
-const expect = (ok, label) => { log((ok ? "PASS " : "FAIL ") + label); if (!ok) fail.push(label); };
+const expect = (ok, label) => {
+  assertions++;
+  log((ok ? "PASS " : "FAIL ") + label);
+  if (!ok) fail.push(label);
+};
 
 const els = boot();
 
@@ -119,10 +125,61 @@ expect(els.scenario.value === "busy", "reset restores default scenario");
 expect(els.consent.hidden === true && els.result.hidden === true, "reset hides consent and result");
 expect(/Please shorten this invitation/i.test(els.draft.value), "reset restores default demo draft");
 
-// 9. No network calls made
+// 9. Composer failure & retry checks: network_error, 429, 5xx, and timeout keep typed text and attached files, show error, and Retry resends the exact same thing
+expect(Boolean(els.attachments) && Boolean(els["attachment-list"]) && Boolean(els.retry), "composer attachment & retry controls present (#attachments, #attachment-list, #retry)");
+
+const composerDraft = "Summarize the attached Q3 notes and timeline.";
+const attachedFiles = [{ name: "q3-notes.md", size: 1420 }, { name: "timeline.csv", size: 860 }];
+
+["network_error", "429", "5xx", "timeout"].forEach(errCode => {
+  els.draft.value = composerDraft;
+  if (els.attachments) {
+    els.attachments.files = attachedFiles;
+    els.attachments.dispatch("change");
+  }
+  els.scenario.value = errCode;
+  els.scenario.dispatch("change");
+  els.simulate.click();
+
+  expect(els.draft.value === composerDraft, errCode + ": failed model call never empties typed text in composer");
+  expect(
+    Boolean(els["attachment-list"]) &&
+    els["attachment-list"].textContent.includes("q3-notes.md") &&
+    els["attachment-list"].textContent.includes("timeline.csv"),
+    errCode + ": failed model call preserves attached files in composer"
+  );
+  expect(
+    new RegExp(errCode === "network_error" ? "network error" : errCode, "i").test(els.status.textContent),
+    errCode + ": error is shown in status (" + els.status.textContent + ")"
+  );
+  expect(Boolean(els.retry) && els.retry.hidden === false, errCode + ": retry button is visible after failed call");
+
+  if (els.retry) {
+    els.retry.click();
+  }
+  expect(els.draft.value === composerDraft, errCode + ": retry keeps typed text in composer");
+  expect(
+    Boolean(els.result) &&
+    els.result.hidden === false &&
+    els.result.textContent.includes(composerDraft) &&
+    els.result.textContent.includes("q3-notes.md") &&
+    els.result.textContent.includes("timeline.csv"),
+    errCode + ": retry resends the exact same text and attached files"
+  );
+});
+
+// 10. Reset restores initial walkthrough state and clears attachments
+els.reset.click();
+expect(
+  Boolean(els["attachment-list"]) && !els["attachment-list"].textContent.includes("q3-notes.md"),
+  "reset restores default attachment state"
+);
+
+// 11. No network calls made
 expect(calls.length === 0, "simulation makes zero network requests");
 
 log("ids found:", ids.length);
+log("ASSERTIONS:", assertions, "(" + (assertions - fail.length) + " passed, " + fail.length + " failed)");
 if (fail.length) {
   log("RESULT: FAIL -> " + fail.join(" | "));
   process.exit(1);

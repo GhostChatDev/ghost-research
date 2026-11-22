@@ -1,5 +1,5 @@
 const fs = require("fs");
-const html = fs.readFileSync("index.html", "utf8");
+const html = fs.readFileSync(fs.existsSync("Index.html") ? "Index.html" : "index.html", "utf8");
 const script = html.split("<script>")[1].split("</script>")[0];
 const store = {};
 function boot(label) {
@@ -20,11 +20,12 @@ function boot(label) {
       click() { (this._ls.click || []).forEach((fn) => fn({ preventDefault() {}, target: this })); },
       focus() {}, scrollIntoView() {}, removeAttribute() {},
       appendChild() {}, removeChild() {},
+      parentNode: { insertBefore() {}, appendChild() {} },
       querySelector() { return makeEl(id + "-child"); },
       querySelectorAll() { return []; }
     };
   }
-  const ids = ["liveDot","liveLabel","tab-plan","tab-bench","tab-connect","tab-research","panel-plan","task","prompt","inTok","outTok","tools","quality","routeBtn","tryBtn","saveBtn","decisionCard","decisionEmpty","decisionBody","chat","tryStatus","panel-bench","days","chats","kwh","benchBtn","benchStats","benchBody","logList","clearLog","panel-connect","runCmd","copyCmd","base","modelId","apiKey","pingBtn","copyProvider","pingStatus","providerCard","panel-research"];
+  const ids = Array.from(new Set([...html.matchAll(/id="([A-Za-z0-9_-]+)"/g)].map((m) => m[1]).concat(["impBody","clearImp","tab-improvements","panel-improvements"])));
   const els = {};
   ids.forEach((id) => { els[id] = makeEl(id); });
   els.task.value = "summarize";
@@ -38,6 +39,10 @@ function boot(label) {
   els.modelId.value = "bitnet-b1.58-2b";
   const tabs = ["tab-plan", "tab-bench", "tab-connect", "tab-research"].map((id) => els[id]);
   global.window = global;
+  global.location = { replace() {} };
+  global.history = { replaceState() {} };
+  global.setTimeout = () => 0;
+  global.fetch = () => Promise.reject(new Error("offline"));
   global.document = {
     getElementById(id) { return els[id] || null; },
     querySelectorAll(sel) { return String(sel).indexOf("tab") >= 0 ? tabs : []; },

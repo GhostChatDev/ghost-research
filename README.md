@@ -1,4 +1,4 @@
-# Ghost Local
+# Ghost Research
 
 A one-page planner that decides which Ghost Chat work can stay on a local BitNet server, and which should stay on Ghost Chat’s cloud.
 

@@ -11,13 +11,13 @@ Independent research and an interactive provider-resilience walkthrough built fr
 ## Files in this repository
 
 - [Research.md](Research.md) — Cited research brief, attribution, and next real experiment design.
-- [Index.html](Index.html) — Self-contained interactive provider-resilience walkthrough (`index.html` redirects here).
+- [Index.html](Index.html) — Self-contained interactive provider-resilience walkthrough.
 - [IMPROVEMENTS.md](IMPROVEMENTS.md) — Prioritized product proposals and acceptance criteria for Ghost Chat.
 - [LICENSE](LICENSE) — Repository license for our original documentation and walkthrough code.
 
 ## Running the walkthrough
 
-Open [Index.html](Index.html) (or `index.html`) in any modern mobile or desktop browser. No build step, server install, or API key is required.
+Open [Index.html](Index.html) in any modern mobile or desktop browser. No build step, server install, or API key is required.
 
 ## Verification limits
 

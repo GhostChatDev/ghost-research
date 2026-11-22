@@ -1,132 +1,131 @@
-// Sandbox check for Index.html: ids, gate, context guard, persistence, XSS.
+// Sandbox check for Index.html: walkthrough scenarios, draft preservation, explicit consent, invalidation, reset, and no-network guarantee.
 import fs from "fs";
+
 const html = fs.readFileSync("Index.html", "utf8");
 const script = html.split("<script>")[1].split("</script>")[0];
 const ids = [...html.matchAll(/id="([a-zA-Z0-9_-]+)"/g)].map(m => m[1]);
-const tabIds = [...html.matchAll(/id="(tab-[a-z]+)"/g)].map(m => m[1]);
-let store = {};
-let fetchMode = "fail";
+
 let calls = [];
 
 function mk(id) {
   return {
-    id, value: "", textContent: "", innerHTML: "", className: "", style: {}, disabled: false,
-    checked: false, hidden: false, dataset: {}, _attrs: {}, _ls: {},
+    id,
+    value: id === "draft" ? "Please shorten this invitation to our weekend book club." : id === "scenario" ? "busy" : "",
+    textContent: "",
+    innerHTML: "",
+    className: "",
+    style: {},
+    disabled: false,
+    checked: false,
+    hidden: id === "consent" || id === "result",
+    dataset: {},
+    _attrs: {},
+    _ls: {},
     classList: { toggle() {}, add() {}, remove() {}, contains() { return false; } },
     setAttribute(k, v) { this._attrs[k] = v; },
     getAttribute(k) { return Object.prototype.hasOwnProperty.call(this._attrs, k) ? this._attrs[k] : null; },
     addEventListener(t, fn) { (this._ls[t] = this._ls[t] || []).push(fn); },
-    dispatch(t, ev) { (this._ls[t] || []).forEach(fn => fn(ev)); },
+    dispatch(t, ev = {}) { (this._ls[t] || []).forEach(fn => fn(ev)); },
     click() { (this._ls.click || []).forEach(fn => fn({ preventDefault() {}, target: this })); },
-    focus() {}, scrollIntoView() {}, removeAttribute() {},
-    parentNode: { insertBefore() {}, appendChild() {} },
-    appendChild(c) { (this.children = this.children || []).push(c); return c; },
-    insertBefore(c) { (this.children = this.children || []).push(c); return c; },
-    removeChild() {}, remove() {},
-    querySelector() { return mk("child"); }, querySelectorAll() { return []; }
+    focus() { this._focused = true; },
+    scrollIntoView() {},
+    removeAttribute() {}
   };
 }
 
 function boot() {
-  globalThis.localStorage = {
-    getItem: k => (k in store ? store[k] : null),
-    setItem: (k, v) => { store[k] = String(v); },
-    removeItem: k => { delete store[k]; }
-  };
-  try { Object.defineProperty(globalThis, "navigator", { value: { clipboard: { writeText: async t => { globalThis.__clip = t; } } }, configurable: true }); } catch (e) { /* Node already provides navigator */ }
   const els = {};
   ids.forEach(id => { els[id] = mk(id); });
-  const tabs = tabIds.map(id => els[id]);
   globalThis.window = globalThis;
   globalThis.document = {
     getElementById: id => els[id] || null,
-    querySelectorAll: s => (String(s).includes("tab") ? tabs : []),
-    querySelector: () => null, addEventListener() {},
-    createElement: () => mk("dyn"), body: mk("body"), execCommand: () => false
+    querySelectorAll: () => [],
+    querySelector: () => null,
+    addEventListener() {},
+    createElement: () => mk("dyn"),
+    body: mk("body")
   };
   globalThis.fetch = async (url, opts = {}) => {
-    calls.push({ url: String(url), method: opts.method || "GET", body: opts.body || null });
-    if (fetchMode === "fail") throw new Error("offline");
-    if (String(url).endsWith("/models")) return { ok: true, status: 200, json: async () => ({ data: [{ id: "bitnet-b1.58-2b" }] }) };
-    return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: "local reply" } }] }) };
+    calls.push({ url: String(url), method: opts.method || "GET" });
+    throw new Error("Unexpected network request from simulation-only walkthrough");
   };
-  globalThis.AbortController = class { constructor() { this.signal = {}; } abort() {} };
   (0, eval)(script);
   return els;
 }
 
-const text = el => (el.innerHTML || el.textContent || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 const log = (...a) => console.log(...a);
 const fail = [];
 const expect = (ok, label) => { log((ok ? "PASS " : "FAIL ") + label); if (!ok) fail.push(label); };
 
-let els = boot();
-els.task.value = "rewrite";
-els.prompt.value = "Shorten this line about the school fair.";
-els.inTok.value = "180"; els.outTok.value = "120";
-els.days.value = "30"; els.chats.value = "40"; els.kwh.value = "0.16";
-els.base.value = "http://127.0.0.1:8080/v1"; els.modelId.value = "bitnet-b1.58-2b";
+const els = boot();
 
-const rows = (els.impBody.innerHTML.match(/<tr>/g) || []).length;
-expect(rows >= 6, "IMP scorecard rows rendered: " + rows);
-expect(!/undefined|null/.test(els.impBody.innerHTML + els.impStats.textContent), "IMP scorecard has no undefined/empty values");
-expect(!/undefined|null/.test(els.benchStats.textContent + els.benchBody.innerHTML), "bench has no undefined/empty values");
-const stats0 = text(els.impStats);
-expect(/[0-9]/.test(stats0), "IMP stats show numbers: " + stats0);
+// 1. Required walkthrough elements exist
+["draft", "scenario", "simulate", "reset", "status", "consent", "approve", "result"].forEach(id => {
+  expect(Boolean(els[id]), "walkthrough element present: #" + id);
+});
 
-els.impBody.dispatch("change", { target: { getAttribute: k => (k === "data-imp" ? "helper" : null) } });
-els.impBody.dispatch("change", { target: { getAttribute: k => (k === "data-imp" ? "ping" : null) } });
-const stats2 = text(els.impStats);
-expect(stats2 !== stats0, "ticking an improvement changes the totals: " + stats2);
+// 2. Empty draft guard
+els.draft.value = "   ";
+els.simulate.click();
+expect(els.consent.hidden === true, "empty draft does not open consent prompt");
+expect(/Add a demo draft first/i.test(els.status.textContent), "empty draft explains why nothing ran: " + els.status.textContent);
 
-els.tryBtn.click();
-await new Promise(r => setTimeout(r, 40));
-expect(!calls.some(c => c.method === "POST"), "gate: no chat text sent while the server is unreachable");
-expect(/off|unreach|no response|blocked|not reach/i.test(els.tryStatus.textContent), "gate: says why it blocked: " + els.tryStatus.textContent);
+// 3. Busy scenario preserves draft and requires explicit consent before switching
+const sampleDraft = "Draft for weekend book club at 4pm.";
+els.draft.value = sampleDraft;
+els.scenario.value = "busy";
+els.simulate.click();
+expect(els.draft.value === sampleDraft, "busy failure preserves the draft text");
+expect(els.consent.hidden === false, "busy failure reveals explicit consent prompt");
+expect(els.result.hidden === true, "busy failure does not switch before consent");
+expect(/busy provider/i.test(els.status.textContent), "busy failure explains state: " + els.status.textContent);
 
-fetchMode = "up"; calls = [];
-els.task.value = "code";
-els.tryBtn.click();
-await new Promise(r => setTimeout(r, 40));
-expect(!calls.some(c => c.method === "POST"), "cloud-only task never goes local: " + els.tryStatus.textContent);
+// 4. Editing draft after failure invalidates stale consent until re-simulated
+els.draft.value = sampleDraft + " Bring a book.";
+els.draft.dispatch("input");
+expect(els.consent.hidden === true, "editing draft invalidates prior consent box");
+els.approve.click();
+expect(els.result.hidden === true, "approve click does nothing when draft was edited after simulation");
 
-els.task.value = "summarize";
-els.tryBtn.click();
-await new Promise(r => setTimeout(r, 40));
-const posts = calls.filter(c => c.method === "POST").length;
-expect(posts === 1, "local task sends exactly one request: " + posts);
-expect(/local reply|received|ok/i.test(els.tryStatus.textContent), "local reply shown: " + els.tryStatus.textContent);
+// 5. Re-simulating and approving records explicit switch with the exact preserved draft
+els.simulate.click();
+expect(els.consent.hidden === false, "re-simulating busy shows consent again");
+els.approve.click();
+expect(els.result.hidden === false, "approving switch reveals simulated result");
+expect(els.consent.hidden === true, "approving switch hides consent prompt");
+expect(els.result.textContent.includes(els.draft.value), "approved switch preserves and displays exact latest draft");
+expect(/SIMULATED SWITCH APPROVED/i.test(els.result.textContent), "approved switch clearly marks simulation only");
 
-calls = [];
-els.inTok.value = "5000"; els.outTok.value = "500";
-els.tryBtn.click();
-await new Promise(r => setTimeout(r, 40));
-expect(!calls.some(c => c.method === "POST"), "context guard blocks an oversized request: " + els.tryStatus.textContent);
+// 6. Offline phone-to-laptop scenario warns about mobile reachability and requires consent
+els.scenario.value = "offline";
+els.scenario.dispatch("change");
+expect(els.result.hidden === true, "changing scenario clears previous result");
+els.simulate.click();
+expect(els.consent.hidden === false, "offline scenario offers explicit alternative consent");
+expect(/phone session/i.test(els.status.textContent), "offline scenario explains phone reachability limit: " + els.status.textContent);
 
-els.inTok.value = "180"; els.outTok.value = "120";
-els.saveBtn.click();
-els.days.value = "7"; els.chats.value = "10"; els.benchBtn.click();
-expect(/[0-9]/.test(text(els.benchStats)), "bench recomputes: " + text(els.benchStats));
+// 7. Tools mismatch scenario blocks switching outright
+els.scenario.value = "tools";
+els.scenario.dispatch("change");
+els.simulate.click();
+expect(els.consent.hidden === true, "tools mismatch blocks switching and hides consent");
+expect(els.result.hidden === true, "tools mismatch produces no switch result");
+expect(/capability mismatch|blocked/i.test(els.status.textContent), "tools mismatch explains why switching is blocked: " + els.status.textContent);
+expect(els.draft.value.includes("Bring a book."), "tools mismatch keeps the user draft intact");
 
-const raw = store["ghost-local-v1"] || "";
-expect(raw.includes('"helper":true'), "ticked improvements saved to localStorage");
+// 8. Reset restores initial walkthrough state
+els.reset.click();
+expect(els.scenario.value === "busy", "reset restores default scenario");
+expect(els.consent.hidden === true && els.result.hidden === true, "reset hides consent and result");
+expect(/Please shorten this invitation/i.test(els.draft.value), "reset restores default demo draft");
 
-els = boot();
-expect(els.logList.innerHTML.includes("summarize"), "saved log survives a refresh");
-expect(/[0-9]/.test(text(els.impStats)) && text(els.impStats) !== stats0, "improvement ticks survive a refresh: " + text(els.impStats));
+// 9. No network calls made
+expect(calls.length === 0, "simulation makes zero network requests");
 
-els.task.value = "rewrite";
-els.prompt.value = "<img src=x onerror=alert(1)>";
-els.saveBtn.click();
-xs: {
-  const h = els.logList.innerHTML;
-  if (h.includes("&#60;") && !h.includes("<img")) { log("PASS XSS escaped"); } else { log("FAIL XSS escaped"); fail.push("XSS escaped"); }
+log("ids found:", ids.length);
+if (fail.length) {
+  log("RESULT: FAIL -> " + fail.join(" | "));
+  process.exit(1);
+} else {
+  log("RESULT: PASS (" + ids.length + " ids, 0 failures)");
 }
-
-els.clearImp.click();
-expect(!(store["ghost-local-v1"] || "").includes('"helper":true'), "clear improvements works");
-els.clearLog.click();
-expect(/nothing saved|no entries|empty/i.test(els.logList.innerHTML), "clear log works: " + text(els.logList));
-
-log("ids found:", ids.length, "| ids present:", ids.filter(i => els[i]).length);
-log(fail.length ? "RESULT: FAIL -> " + fail.join(" | ") : "RESULT: PASS (" + ids.length + " ids, 0 failures)");

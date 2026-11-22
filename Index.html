@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ghost Local — BitNet router for Ghost Chat</title>
-<meta name="description" content="Plan which Ghost Chat work can run on a local Microsoft BitNet server, and which still needs the cloud.">
+<title>Ghost Research — BitNet findings and what improves Ghost Chat</title>
+<meta name="description" content="Ghost Research: our BitNet findings, a router that keeps simple work on your CPU, and the ranked list of what would improve Ghost Chat.">
 <style>
   :root {
     --bg: #0e1116;
@@ -291,10 +291,10 @@
 <div class="wrap">
   <header class="top">
     <div class="mark">
-      <div class="logo" aria-hidden="true">GL</div>
+      <div class="logo" aria-hidden="true">GR</div>
       <div>
-        <h1>Ghost Local</h1>
-        <p class="sub">A BitNet planner for Ghost Chat. It shows which work can stay on your CPU, what it saves, and the exact own-provider settings to paste in.</p>
+        <h1>Ghost Research</h1>
+        <p class="sub">Our Microsoft BitNet research, made usable: route a message to your CPU or to Ghost Chat’s cloud, check the local server, and read the ranked list of what would improve Ghost Chat.</p>
       </div>
     </div>
     <div class="pill"><span class="dot" id="liveDot"></span><span id="liveLabel">Local server not checked</span></div>
@@ -305,6 +305,7 @@
     <button role="tab" id="tab-bench" aria-selected="false" aria-controls="panel-bench">Savings bench</button>
     <button role="tab" id="tab-connect" aria-selected="false" aria-controls="panel-connect">Connect Ghost Chat</button>
     <button role="tab" id="tab-research" aria-selected="false" aria-controls="panel-research">Research</button>
+    <button role="tab" id="tab-improvements" aria-selected="false" aria-controls="panel-improvements">Improvements</button>
   </nav>
 
   <main>
@@ -492,6 +493,40 @@ python run_inference_server.py -m models/BitNet-b1.58-2B-4T/ggml-model-i2_s.gguf
         </ol>
       </div>
     </section>
+
+    <section class="panel" id="panel-improvements" role="tabpanel" aria-labelledby="tab-improvements" hidden>
+      <div class="card">
+        <h2>What would improve Ghost Chat, ranked</h2>
+        <p class="hint">Each line is something Ghost Chat does not do today, what our BitNet research says about it, and how much it is worth. Sources in <span class="mono">Research.md</span>. Nothing here is a claim that Ghost Chat already ships it. Check a row to log that it shipped; <span class="mono">2 of 6 done</span> updates and is kept on this device.</p>
+        <div class="stats" id="impStats"></div>
+        <div style="overflow:auto">
+          <table>
+            <thead>
+              <tr>
+                <th>Shipped</th>
+                <th>#</th>
+                <th>Improvement</th>
+                <th>Evidence</th>
+                <th>For the person</th>
+                <th class="num">Score</th>
+              </tr>
+            </thead>
+            <tbody id="impBody"></tbody>
+          </table>
+        </div>
+        <div class="actions">
+          <button class="btn ghost" id="clearImp" type="button">Reset ticks</button>
+        </div>
+      </div>
+      <div class="card" style="margin-top:12px">
+        <h2>What we are not asking for</h2>
+        <ul class="sources">
+          <li>Not a 100B model in the chat box. The released chat model is 2.4B with 4096 tokens of context, and Microsoft says it is for research, not production use [16][19].</li>
+          <li>Not memory fading or compression. BitNet’s 1-bit weights would change every reply, and a research model that drops detail is not the teammate people trust. If you want that experiment, it belongs in a Ghost Code session with its own branch, not in this app.</li>
+          <li>Not a local replacement for Ghost Researcher, Ghost Coded, Ghost Finance or Ghost Media. Those need tools, sources, money math and pictures.</li>
+        </ul>
+      </div>
+    </section>
   </main>
   <footer class="note">Estimates only. Not a Ghost Chat bill, not financial advice, and not a claim that a 2.4B local model matches Ghost Chat’s cloud agents. Electricity uses 0.4 J/token as a planning ceiling inside Microsoft’s reported savings band, times your $/kWh.</footer>
 </div>
@@ -509,6 +544,7 @@ python run_inference_server.py -m models/BitNet-b1.58-2B-4T/ggml-model-i2_s.gguf
   };
   var MARKUP = 1.2;
   var JOULES_PER_TOKEN = 0.4;
+  var CONTEXT_LIMIT = 4096;
 
   var MIX = [
     { id: "rewrite", name: "Rewrite / clean up", share: 0.28, route: "local", cloud: "deepseek" },
@@ -527,15 +563,17 @@ python run_inference_server.py -m models/BitNet-b1.58-2B-4T/ggml-model-i2_s.gguf
       if (!raw) return { log: [], base: "http://127.0.0.1:8080/v1", modelId: "bitnet-b1.58-2b" };
       var parsed = JSON.parse(raw);
       if (!parsed || !Array.isArray(parsed.log)) throw new Error("bad");
+      if (!parsed.imp || typeof parsed.imp !== "object") parsed.imp = {};
       return parsed;
     } catch (e) {
-      return { log: [], base: "http://127.0.0.1:8080/v1", modelId: "bitnet-b1.58-2b" };
+      return { log: [], imp: {}, base: "http://127.0.0.1:8080/v1", modelId: "bitnet-b1.58-2b" };
     }
   }
 
   function save() {
     var copy = {
       log: state.log.slice(0, 40),
+      imp: state.imp || {},
       base: state.base,
       modelId: state.modelId
     };
@@ -638,6 +676,38 @@ python run_inference_server.py -m models/BitNet-b1.58-2B-4T/ggml-model-i2_s.gguf
     el.className = "status" + (kind ? " " + kind : "");
   }
 
+  async function ensureHealthy() {
+    if (healthOk) return true;
+    setStatus("tryStatus", "Checking the local server before sending anything to it …");
+    var headers = {};
+    var key = $("apiKey").value.trim();
+    if (key) headers.Authorization = "Bearer " + key;
+    var ctrl = new AbortController();
+    var timer = setTimeout(function () { ctrl.abort(); }, 8000);
+    try {
+      var res = await fetch(state.base.replace(/\/$/, "") + "/models", { headers: headers, signal: ctrl.signal });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      var data = await res.json().catch(function () { return {}; });
+      var ids = (data.data || []).map(function (m) { return m.id; }).filter(Boolean);
+      if (ids[0] && ids.indexOf(state.modelId) === -1) {
+        state.modelId = ids[0];
+        $("modelId").value = ids[0];
+        save();
+      }
+      healthOk = true;
+      setLive(true);
+      return true;
+    } catch (e) {
+      healthOk = false;
+      setLive(false);
+      addBubble("note", "The local server did not answer. Nothing was sent, and no chat text left this page.");
+      setStatus("tryStatus", "Server not reachable at " + state.base + ". Open Connect and check it, then try again.", "bad");
+      return false;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   async function tryLocal() {
     var d = decide();
     renderDecision(d);
@@ -650,9 +720,23 @@ python run_inference_server.py -m models/BitNet-b1.58-2B-4T/ggml-model-i2_s.gguf
       setStatus("tryStatus", "Blocked: this task should stay on Ghost Chat.", "bad");
       return;
     }
+    if (d.inn + d.out > CONTEXT_LIMIT) {
+      addBubble("note", "This is longer than the local model can hold. It was not sent.");
+      setStatus("tryStatus", "Too long: " + d.inn + " in + " + d.out + " out tokens, the local limit is " + CONTEXT_LIMIT + ". Send it to Ghost Chat instead, or shorten it.", "bad");
+      return;
+    }
+    $("tryBtn").disabled = true;
+    try {
+      if (!(await ensureHealthy())) return;
+      await sendLocal(d);
+    } finally {
+      $("tryBtn").disabled = false;
+    }
+  }
+
+  async function sendLocal(d) {
     addBubble("user", d.prompt);
     setStatus("tryStatus", "Calling " + state.base + " …");
-    $("tryBtn").disabled = true;
     var headers = { "Content-Type": "application/json" };
     var key = $("apiKey").value.trim();
     if (key) headers.Authorization = "Bearer " + key;
@@ -760,6 +844,104 @@ python run_inference_server.py -m models/BitNet-b1.58-2B-4T/ggml-model-i2_s.gguf
       "<div class='stat'><b>" + Math.round(localTokens / 1000) + "k</b><span>Tokens moved local</span></div>";
   }
 
+  var healthOk = false;
+
+  var IMPROVEMENTS = [
+    {
+      id: "helper",
+      name: "A local helper line for short work",
+      evidence: "bitnet.cpp runs a 2.4B model on a CPU, and Ghost Chat already accepts any OpenAI-compatible provider [9][16].",
+      person: "Rewrites and summaries stop touching your balance.",
+      score: 5
+    },
+    {
+      id: "badge",
+      name: "A “runs on my computer” badge on each message",
+      evidence: "The shipped model stops at 4096 tokens of context, so long chats must not be sent to it [16].",
+      person: "You see where a message goes before you send it.",
+      score: 3
+    },
+    {
+      id: "ping",
+      name: "One-tap “check server” in Your providers",
+      evidence: "The OpenAI-compatible server is built but undocumented, with a report of it dying (SIGBUS) [4].",
+      person: "You learn the server is down in one tap, not after a failed reply.",
+      score: 5
+    },
+    {
+      id: "split",
+      name: "Say in the model list what stays in the cloud",
+      evidence: "A 2.4B model on a CPU is not Ghost Researcher, Ghost Coded or Ghost Finance [9][19].",
+      person: "Fewer wasted replies where a small model pretends to do research.",
+      score: 3
+    },
+    {
+      id: "private",
+      name: "A private mode that names where the text went",
+      evidence: "Ghost mode keeps a chat unsaved, but a cloud reply still leaves the machine [2].",
+      person: "You can keep notes on your own hardware on purpose.",
+      score: 4
+    },
+    {
+      id: "fallback",
+      name: "Local fallback when a cloud model is busy",
+      evidence: "The free-message path already uses a cheap backup model when free models are busy [2].",
+      person: "A rewrite still answers when the busy queue would have made you wait.",
+      score: 2
+    },
+    {
+      id: "energy",
+      name: "Show the energy saved, only after a real local call",
+      evidence: "Microsoft reports 55.4%–82.2% less energy for the kernels versus full precision [9].",
+      person: "A real number instead of a marketing figure.",
+      score: 2
+    }
+  ];
+
+  function renderImp() {
+    var imp = state.imp || {};
+    var body = IMPROVEMENTS.map(function (item, i) {
+      var on = !!imp[item.id];
+      return "<tr><td><input type='checkbox' data-imp='" + item.id + "'" + (on ? " checked" : "") + " aria-label='Shipped: " + escapeHtml(item.name) + "'></td>" +
+        "<td class='num'>" + (i + 1) + "</td>" +
+        "<td><strong>" + escapeHtml(item.name) + "</strong></td>" +
+        "<td>" + escapeHtml(item.evidence) + "</td>" +
+        "<td>" + escapeHtml(item.person) + "</td>" +
+        "<td class='num'>" + item.score + "</td></tr>";
+    }).join("");
+    $("impBody").innerHTML = body;
+    var done = IMPROVEMENTS.filter(function (item) { return imp[item.id]; });
+    var points = done.reduce(function (sum, item) { return sum + item.score; }, 0);
+    var total = IMPROVEMENTS.reduce(function (sum, item) { return sum + item.score; }, 0);
+    $("impStats").innerHTML =
+      "<div class='stat'><b>" + done.length + " of " + IMPROVEMENTS.length + "</b><span>Marked shipped</span></div>" +
+      "<div class='stat'><b>" + points + " / " + total + "</b><span>Weighted score</span></div>" +
+      "<div class='stat'><b>" + (done.length ? done[0].name.split(" ").slice(0, 2).join(" ") : "—") + "</b><span>Top shipped item</span></div>" +
+      "<div class='stat'><b>2.4B</b><span>Largest local chat model</span></div>";
+    renderImpHidden(done.length);
+  }
+
+  function renderImpHidden(doneCount) {
+    var box = $("impStats");
+    if (!box) return;
+    var note = document.getElementById("impNote");
+    if (!note) {
+      note = document.createElement("p");
+      note.id = "impNote";
+      note.className = "hint";
+      box.parentNode.insertBefore(note, box);
+    }
+    note.textContent = doneCount + " of " + IMPROVEMENTS.length + " done, kept on this device.";
+  }
+
+  function toggleImp(id) {
+    state.imp = state.imp || {};
+    if (state.imp[id]) delete state.imp[id];
+    else state.imp[id] = true;
+    save();
+    renderImp();
+  }
+
   function providerText() {
     return [
       "Name: Ghost Local BitNet",
@@ -794,9 +976,11 @@ python run_inference_server.py -m models/BitNet-b1.58-2B-4T/ggml-model-i2_s.gguf
       }
       setStatus("pingStatus", "Reachable. Models: " + (ids.join(", ") || "none listed") + ".", "ok");
       setLive(true);
+      healthOk = true;
     } catch (e) {
       setStatus("pingStatus", "No response. The server is off, or this page cannot see that host.", "bad");
       setLive(false);
+      healthOk = false;
     } finally {
       clearTimeout(timer);
     }
@@ -824,7 +1008,7 @@ python run_inference_server.py -m models/BitNet-b1.58-2B-4T/ggml-model-i2_s.gguf
   }
 
   function show(id) {
-    ["plan", "bench", "connect", "research"].forEach(function (name) {
+    ["plan", "bench", "connect", "research", "improvements"].forEach(function (name) {
       var on = name === id;
       $("tab-" + name).setAttribute("aria-selected", on ? "true" : "false");
       var panel = $("panel-" + name);
@@ -856,11 +1040,21 @@ python run_inference_server.py -m models/BitNet-b1.58-2B-4T/ggml-model-i2_s.gguf
     renderLog();
   });
   $("pingBtn").addEventListener("click", ping);
+  $("impBody").addEventListener("change", function (e) {
+    var box = e.target;
+    if (box && box.getAttribute && box.getAttribute("data-imp")) toggleImp(box.getAttribute("data-imp"));
+  });
+  $("clearImp").addEventListener("click", function () {
+    state.imp = {};
+    save();
+    renderImp();
+  });
   $("copyCmd").addEventListener("click", function () { copy($("runCmd").textContent, $("copyCmd")); });
   $("copyProvider").addEventListener("click", function () { copy(providerText(), $("copyProvider")); });
 
   $("providerCard").textContent = providerText();
   renderLog();
+  renderImp();
   bench();
   renderDecision(decide());
 })();

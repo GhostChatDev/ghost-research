@@ -1,164 +1,74 @@
-# What this research says Ghost Chat should change
+# Proposed Ghost Chat improvements: provider resilience
 
-Ranked by payoff ÷ work, judged from `Research.md`. The same seven items are on the
-**Improvements** tab of `Index.html` with the same weights, so ticking a row there and
-reading this file is one list, not two.
+Reviewed: 2026-11-22.
+Status: **proposals only (0 shipped)**. None of these changes are claimed to be deployed in Ghost Chat, and this document is not an audit proving a feature is absent from Ghost Chat's production codebase.
 
-Weights: **5** = cheap and removes a real failure, **3** = cheap but smaller win, **2** = bigger
-job or smaller payoff. Total available score: **24**.
-
-Status line: **0 of 7 shipped.** Nothing here is in Ghost Chat; this repository is a proposal
-plus a page that demonstrates the routing decisions.
+These proposals come from the findings in [Research.md](Research.md) and are illustrated as an interactive concept in [Index.html](Index.html).
 
 ---
 
-## 1. One-tap “check server” in Settings → Your own providers — weight 5
+## Why the focus changed from a local savings calculator
 
-**Problem.** Ghost Chat accepts any OpenAI-compatible provider, but it only tells you the
-server is broken when a reply fails. The BitNet build produces a `llama-server` binary that the
-README never documents, and there is a public report of it dying with SIGBUS on one setup
-[4].
+The earlier planner scored a local 1-bit model routing table for a ~$1/month theoretical saving. As noted in [Research.md](Research.md):
 
-**Change.** A button beside each own-provider entry that calls `GET <baseURL>/models` with the
-stored key, shows reachable / wrong key / unreachable / timeout, and remembers the last result
-with its timestamp.
+1. **Audience mismatch:** running `bitnet.cpp` requires compiling and keeping a local server running on a computer [1], whereas many Ghost Chat users are on phones where `127.0.0.1` points to the phone itself.
+2. **Real operational risk:** when a gateway or selected provider fails or times out, the immediate user pain is losing an unsent draft or having a request silently retried with different privacy, tool support, context limits, or cost.
 
-**Why it is first.** It is a status check, not a feature. It turns "my reply vanished" into
-"the server is down, here is the URL, press retry". The page's `Connect` tab already implements
-exactly this call and the sandbox harness proves the gate refuses to send chat text when it
-fails.
-
-**Proof to look for.** With the server stopped, tapping Test says unreachable within one
-timeout, and sending is blocked before any tokens are spent.
-
-## 2. A local helper line for short work — weight 5
-
-**Problem.** Rewrites, summaries, labels and quiz generation are short, low-stakes and
-repetitive, and every one of them currently costs balance on a cloud model.
-
-**Change.** Route only that narrow class of work to a local provider when one is configured,
-and keep a visible switch. Never route code, research, money math, pictures, tool calls or a
-long context to a 2B model — the shipped model's context is 4096 tokens and Microsoft labels
-it research-only [16][21].
-
-**Why.** This is the whole value of the BitNet finding: inference that costs electricity
-instead of tokens, on work where a small model is enough. Microsoft's energy claim
-(55.4%–82.2% less for the kernels) is about the kernels, not about a Ghost Chat bill [9];
-the saving that is real is the per-token price going to zero.
-
-**Risk.** Privacy framing must stay honest: a local reply never leaves the machine, but a
-*cached* routing decision could. Store the routing rule, not the prompt.
-
-## 3. A “runs on my computer” badge on each message — weight 3
-
-**Problem.** People cannot tell, looking at a reply, whether it came from Ghost Coded or from a
-2B model on their laptop. That is how a small model quietly gets trusted with research.
-
-**Change.** A small badge on every message: the provider name, the model, and where it ran
-(cloud / your device). Hovering shows the context window that was assumed.
-
-**Why.** The 4096-token limit is the sharp edge in this whole idea, and a badge is the cheapest
-way to keep that edge visible. The page's Route tab already produces the decision text;
-the badge is the same string attached to a message instead of a table row.
-
-## 4. Say in the model list what stays in the cloud — weight 3
-
-**Problem.** The model picker lists names and prices. Nothing says that a local 2B entry
-cannot do what Ghost Researcher or Ghost Finance do.
-
-**Change.** Group local providers under “On your device” with a one-line note: *short text
-only, 4096 tokens, not for research, code or money math.* Keep them out of the agent rows
-(Ghost Researcher, Ghost Writer, Ghost Analyst, Ghost Finance, Ghost Tutor, Ghost Media,
-Ghost Agent, Ghost Coded, Ghost Save, Ghost Fikra, Ghost Gamer).
-
-**Why.** The BitNet model card shows the 2B model trailing larger peers on hard benchmarks
-[21]. The cost of saying so in the picker is one label; the cost of not saying it is a person
-trusting a labelling model with a financial calculation.
-
-## 5. A private mode that names where the text went — weight 4
-
-**Problem.** Ghost mode keeps a chat unsaved, which protects it from storage but not from
-leaving the device. There is no mode that says plainly: nothing here is going to a cloud
-provider.
-
-**Change.** A “Local only” switch above the message box. Every model that is not a local
-provider is disabled while it is on. Each reply carries the destination, and turning the
-switch on shows the destination before the first message, not after.
-
-**Why.** It reuses the badge from item 3 and the routing rule from item 2, so the marginal
-work is small. It is the honest version of the privacy promise, and it cannot be faked by
-caching.
-
-**Hard requirement.** If no local provider is configured, the switch must say so and stay off
-rather than silently doing nothing.
-
-## 6. Local fallback when a cloud model is busy — weight 2
-
-**Problem.** A busy queue means waiting. A short rewrite does not need the queue.
-
-**Change.** After a timeout or a 429 on a *short, low-stakes* request, offer “answer this on
-your device instead” and show the result with the local badge. Never do it silently, and never
-for the tasks excluded in item 2.
-
-**Why weight 2.** It adds a second failure path (the local server may also be down) and the
-queue is usually short-lived. Useful, but it must not jump ahead of the badge and the picker
-label, which prevent worse mistakes.
-
-## 7. Show the energy saved, only after a real local call — weight 2
-
-**Problem.** Energy numbers are easy to quote and easy to misread. Microsoft's 55.4%–82.2%
-figure compares the ternary kernels to full-precision kernels on the same hardware [9]; it
-says nothing about a Ghost Chat balance.
-
-**Change.** After a completed local call, show tokens generated and an estimated watt-hours.
-Label it as an estimate, with the method in one tap. Show nothing before a real call —
-no projected monthly figure on the chat screen.
-
-**Why weight 2.** It is the least consequential item and the most easily turned into a
-marketing claim. Ship it last, and only with the method visible.
+The priority is therefore **mobile-accessible provider resilience with explicit consent**.
 
 ---
 
-## What must **not** change
+## Prioritized proposals
 
-- **Do not replace a Ghost agent with a local model.** A 2B model is not Ghost Researcher,
-  Ghost Writer, Ghost Analyst, Ghost Finance, Ghost Tutor or Ghost Coded [21].
-- **Do not raise the context limit beyond 4096 for a local provider.** A silent overflow produces
-  a confident wrong answer, which is worse than a refusal.
-- **Do not use BitNet as memory compression.** 1-bit weights change every reply; a research
-  teammate that drops detail is not trustworthy. If that experiment is worth running, it
-  belongs in a Ghost Code session on its own branch, not in the product.
-- **Do not put an API key in the page.** The page in this repo never stores one; a local server
-  needs none.
+### 1. Preserve the draft across any provider or gateway failure (Priority 1)
 
-## Ranking at a glance
+- **Problem:** When a provider returns an error, times out, or drops mid-request, losing the composer text forces the user to rewrite their prompt.
+- **Proposed change:** Keep the exact draft in the message box until a completion succeeds or the user explicitly clears it. If a request status is ambiguous (for example, a connection drop after submission), tell the user the completion status is unknown before offering a retry so they do not accidentally double-spend.
+- **Acceptance criteria:** Inducing a network error, 429, or 5xx on mobile (390px) and desktop (1440px) leaves the draft intact and editable in place.
 
-| # | Change | Weight | Work | Blocks a real mistake? |
-|---|---|---|---|---|
-| 1 | Check server button | 5 | small | yes — failed sends |
-| 2 | Local helper line for short work | 5 | medium | no — it saves money |
-| 5 | Local-only mode | 4 | small | yes — privacy claim |
-| 3 | Per-message origin badge | 3 | small | yes — wrong model trusted |
-| 4 | Picker says what stays cloud | 3 | small | yes — wrong model trusted |
-| 6 | Local fallback when busy | 2 | medium | no |
-| 7 | Energy saved after a real call | 2 | small | no |
+### 2. Explicit consent card before switching providers (Priority 1)
 
-Order of work: **1 → 5 → 3 → 4 → 2 → 6 → 7**. The three cheap guards come first because they
-cost the least and prevent the two failures that lose trust: a send to a dead server, and a
-small model trusted with serious work.
+- **Problem:** Silently falling back from a user's chosen provider to another provider can change who receives the text, whether tools work, the context limit, and the price charged to the user's balance.
+- **Proposed change:** When the selected provider is unreachable or busy, show a clear recovery card naming:
+  - what failed,
+  - the proposed alternative provider and model,
+  - whether price, privacy destination, context window, or tool support differ,
+  - a single action to approve the switch for this message only.
+- **Acceptance criteria:** No fallback request is sent until the user taps approve. Editing the draft or changing the scenario invalidates any prior approval.
+
+### 3. Block incompatible switches when tools, vision, or long context are required (Priority 2)
+
+- **Problem:** A small model such as BitNet b1.58 2B4T has a 4,096-token context window and is a text model [3]. Routing a Ghost Researcher, Ghost Finance, or long-context coding prompt to an incompatible fallback produces broken or truncated results.
+- **Proposed change:** Check capability requirements (web search, code execution, image input, context length) before offering an alternative provider. If an alternative lacks required capabilities, explain why it is blocked rather than offering a broken switch.
+- **Acceptance criteria:** Requests requiring tools or exceeding the target model's context window cannot be switched to an incompatible provider.
+
+### 4. Reachability and origin check in Settings → Your own providers (Priority 2)
+
+- **Problem:** Ghost Chat supports user-configured OpenAI-compatible providers [6], and `bitnet.cpp` builds upon `llama.cpp` where HTTP serving has user-reported rough edges [4]. On a phone, entering `http://127.0.0.1:8080/v1` points to the phone, and browser mixed-content or CORS rules can block LAN HTTP endpoints from an HTTPS app.
+- **Proposed change:** Add a "Test connection" action in Settings → Your own providers that tests the exact request path the chat will use (browser-direct vs. server-proxied), reports reachability and authentication status, and warns immediately when a loopback URL is entered on a mobile device.
+- **Acceptance criteria:** Testing an unreachable or loopback URL from a phone explains the device/network mismatch before the user starts a chat.
+
+### 5. Per-reply provider and model provenance badge (Priority 3)
+
+- **Problem:** When a user tests multiple providers or approves a fallback switch, they need to know which provider and model actually produced each reply.
+- **Proposed change:** Record and display the actual provider and model ID on the completed message, alongside any real token usage and cost reported by that provider.
+- **Acceptance criteria:** Every completed reply after an approved switch displays the provider that answered.
+
+---
+
+## What we explicitly retired
+
+- **No projected monthly kWh or dollar savings widget:** Upstream BitNet kernel energy reductions (55.4%–82.2% vs. full precision on the same CPU [2]) do not measure Ghost Chat billing savings.
+- **No silent local routing of agent tasks:** Ghost Researcher, Ghost Finance, Ghost Coded, and other specialist agents rely on tool use and stronger models.
+- **No unauthenticated LAN exposure advice:** Never advise users to bind an unauthenticated local inference server to `0.0.0.0` on an untrusted network just to reach it from a phone.
+
+---
 
 ## Sources
 
-1. microsoft/BitNet, official inference framework — https://github.com/microsoft/BitNet
-2. Ghost Chat, Docs, privacy and terms — https://ghostchat.tech/docs
-4. OpenAI-compatible server built but undocumented; one report of the server dying —
-   https://github.com/microsoft/BitNet/issues/432
-9. bitnet.cpp README, speed and energy figures versus full precision —
-   https://github.com/microsoft/BitNet/blob/main/README.md
-16. BitNet b1.58 2B4T model card, 4096-token context, research-only licence —
-   https://huggingface.co/microsoft/bitnet-b1.58-2B-4T
-19. BitNet b1.58 2B4T technical report — https://arxiv.org/abs/2504.12285
-21. BitNet b1.58 2B4T, ternary weights and training note —
-   https://huggingface.co/microsoft/bitnet-b1.58-2B-4T
-
-Numbering follows `Research.md`, so [4], [16] and [21] mean the same thing in both files.
+- [1] Microsoft, BitNet repository: https://github.com/microsoft/BitNet
+- [2] Microsoft, `bitnet.cpp` README and benchmark claims: https://github.com/microsoft/BitNet/blob/main/README.md
+- [3] Microsoft, BitNet b1.58 2B4T model card (MIT licence, 4,096-token context, intended-use notes): https://huggingface.co/microsoft/bitnet-b1.58-2B-4T
+- [4] BitNet issue #432, HTTP serving discussion: https://github.com/microsoft/BitNet/issues/432
+- [5] Simplifying AI (`@simplifyinAI`), source X post: https://x.com/simplifyinAI/status/2124160360538358208
+- [6] Ghost Chat documentation (`Your providers`): https://ghostchat.tech/docs

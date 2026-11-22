@@ -1,27 +1,29 @@
-# Ghost Local
+# Ghost Research
 
-A one-page planner that decides which Ghost Chat work can stay on a local BitNet server, and which should stay on Ghost Chat’s cloud.
+Independent research and an interactive provider-resilience walkthrough built from the BitNet investigation for Ghost Chat.
 
-Open `index.html` in a browser. No install. No API key. The page does not call a model.
+## Scope and status
 
-## What is in this folder
+- **Research (`Research.md`):** Evaluates the claims shared by Simplifying AI (`@simplifyinAI`) against Microsoft's primary `bitnet.cpp` repository, the `BitNet b1.58 2B4T` model card, issue #432, and Ghost Chat's documentation.
+- **Walkthrough (`Index.html`):** An explicitly labelled **simulation-only** UI walkthrough showing how Ghost Chat can preserve a user's draft when a provider fails, explain capability or mobile-reachability mismatches, and require explicit consent before switching providers.
+- **Proposals (`IMPROVEMENTS.md`):** Prioritized acceptance criteria for mobile-accessible provider resilience in Ghost Chat. These are proposals, not shipped Ghost Chat features.
 
-- `index.html` — the planner. Route a chat, see the saving, copy the local provider settings.
-- `RESEARCH.md` — the BitNet claims, what not to believe, and the order to build the rest.
+## Files in this repository
 
-## Local provider, if you run bitnet.cpp yourself
+- [Research.md](Research.md) — Cited research brief, attribution, and next real experiment design.
+- [Index.html](Index.html) — Self-contained interactive provider-resilience walkthrough (`index.html` redirects here).
+- [IMPROVEMENTS.md](IMPROVEMENTS.md) — Prioritized product proposals and acceptance criteria for Ghost Chat.
+- [LICENSE](LICENSE) — Repository license for our original documentation and walkthrough code.
 
-In Ghost Chat: Settings → Your own providers.
+## Running the walkthrough
 
-- Base URL: `http://127.0.0.1:8080/v1`
-- Model ID: `bitnet-b1.58-2b`
-- API key: any placeholder. Ghost Chat charges nothing for your own provider. Do not paste a real cloud key here.
+Open [Index.html](Index.html) (or `index.html`) in any modern mobile or desktop browser. No build step, server install, or API key is required.
 
-The OpenAI-compatible server is compiled by bitnet.cpp but is not the documented path. See `RESEARCH.md` before relying on it.
+## Verification limits
 
-## Demo data
-
-The sample chats on the page are labeled demo. The savings figure is a plan, not a bill.
+- The walkthrough uses fixed, fictional provider states inside the browser tab.
+- It does **not** contact an AI provider, generate model completions, store API keys, or test live failover against a running `bitnet.cpp` server.
+- Upstream BitNet code and model weights remain property of their respective authors under the MIT license.
 
 ---
 <img src="https://ghostchat.tech/icons/ghost-code-dev.png" width="20" height="20" alt="" align="top"> Built by [Ghost Code Dev](https://ghostchat.tech)
